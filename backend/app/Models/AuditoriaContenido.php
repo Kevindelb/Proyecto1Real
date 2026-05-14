@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AuditoriaContenido extends Model
 {
-    protected $table = 'auditoria_contenido';
-    protected $primaryKey = 'id_auditoria';
+    protected $table = 'cambios_web';
+    protected $primaryKey = 'id_cambio';
     public $timestamps = false;
 
     protected $fillable = [

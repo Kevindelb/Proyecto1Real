@@ -42,17 +42,19 @@ class CarritoController extends Controller
             'num_personas' => 'required|integer|min:1'
         ]);
 
-        // Verificar disponibilidad
         $servicio = Servicio::findOrFail($request->id_servicio);
-        if (!$servicio->estaDisponible()) {
+
+        if ($servicio->estado !== 'activo') {
             return response()->json([
                 'message' => 'Servicio no disponible'
             ], 400);
         }
 
-        // Verificar si ya existe en el carrito
+        // Verificar si ya existe en el carrito con los mismos detalles
         $itemExistente = Carrito::where('id_usuario', $request->user()->id_usuario)
                                 ->where('id_servicio', $request->id_servicio)
+                                ->where('fecha_viaje', $request->fecha_viaje)
+                                ->where('num_personas', $request->num_personas)
                                 ->first();
 
         if ($itemExistente) {

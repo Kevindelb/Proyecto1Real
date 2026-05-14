@@ -6,7 +6,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CarritoController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\ServicioController;
-use Termwind\Components\Raw;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -53,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pedidos', [PedidoController::class, 'store']);
     Route::get('/pedidos/{id}', [PedidoController::class, 'show']);
 
+
     
     // ========================================
     // RUTAS SOLO PARA ADMINISTRADORES
@@ -65,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/servicios/{id}', [ServicioController::class, 'destroy']);
         
         // PEDIDOS (gestión admin)
+        Route::get('/admin/pedidos', [PedidoController::class, 'adminIndex']);
         Route::put('/pedidos/{id}/estado', [PedidoController::class, 'updateEstado']);
     });
 });

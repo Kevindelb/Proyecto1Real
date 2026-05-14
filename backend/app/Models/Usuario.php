@@ -12,7 +12,7 @@ class Usuario extends Authenticatable
 
     protected $table = 'usuarios';
     protected $primaryKey = 'id_usuario';
-    public $timestamps = false;
+    // public $timestamps = false;
 
     protected $fillable = [
         'nombre',
@@ -38,6 +38,10 @@ class Usuario extends Authenticatable
     {
         return $this->hasMany(Pedido::class, 'id_usuario');
     }
+
+
+
+
 
 
     // Verificar si es administrador

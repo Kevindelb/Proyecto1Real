@@ -6,26 +6,24 @@ use Illuminate\Database\Eloquent\Model;
 
 class DatosPago extends Model
 {
-    protected $table = 'datos_pago';
+    protected $table = 'pagos';
     protected $primaryKey = 'id_pago';
     public $timestamps = false;
 
     protected $fillable = [
         'id_pedido',
-        'nombre_titular',
-        'numero_tarjeta_encriptado',
-        'tipo_tarjeta',
-        'codigo_autorizacion',
+        'proveedor',
+        'referencia_externa',
+        'monto',
+        'moneda',
         'estado_transaccion',
-        'mensaje_banco'
-    ];
-
-    protected $hidden = [
-        'numero_tarjeta_encriptado'
+        'fecha_pago'
     ];
 
     protected $casts = [
-        'fecha_transaccion' => 'datetime'
+        'monto' => 'decimal:2',
+        'fecha_pago' => 'datetime',
+        'creado_en' => 'datetime'
     ];
 
     // Relaciones

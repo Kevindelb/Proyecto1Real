@@ -7,6 +7,7 @@ use App\Models\DetallePedido;
 use App\Models\Carrito;
 use App\Models\DatosPago;
 use App\Models\Factura;
+use App\Models\Servicio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +27,15 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
+    public function adminIndex()
+    {
+        $pedidos = Pedido::with(['usuario', 'detalles.servicio', 'factura', 'datosPago'])
+                        ->orderBy('fecha_pedido', 'desc')
+                        ->get();
+
+        return response()->json($pedidos);
+    }
+
     /**
      * Ver detalle de un pedido
      * GET /api/pedidos/{id}
@@ -33,8 +43,10 @@ class PedidoController extends Controller
     public function show(Request $request, $id)
     {
         $pedido = Pedido::where('id_pedido', $id)
-                       ->where('id_usuario', $request->user()->id_usuario)
-                       ->with(['detalles.servicio', 'factura'])
+                       ->with(['detalles.servicio', 'factura', 'datosPago'])
+                       ->when(!$request->user()->isAdmin(), function ($query) use ($request) {
+                           $query->where('id_usuario', $request->user()->id_usuario);
+                       })
                        ->firstOrFail();
 
         return response()->json($pedido);
@@ -48,9 +60,9 @@ class PedidoController extends Controller
     {
         $request->validate([
             'metodo_pago' => 'required|in:tarjeta_credito,tarjeta_debito,transferencia,paypal',
-            'nombre_titular' => 'required|string|max:150',
-            'numero_tarjeta' => 'required|string', // En producción: encriptar
-            'tipo_tarjeta' => 'nullable|string|max:50'
+            'nombre_titular' => 'required_if:metodo_pago,tarjeta_credito,tarjeta_debito|nullable|string|max:150',
+            'numero_tarjeta' => 'required_if:metodo_pago,tarjeta_credito,tarjeta_debito|nullable|string',
+            'referencia_externa' => 'nullable|string|max:150'
         ]);
 
         // Obtener items del carrito
@@ -71,6 +83,22 @@ class PedidoController extends Controller
 
         DB::beginTransaction();
         try {
+            $serviciosBloqueados = [];
+            foreach ($carrito as $item) {
+                $servicio = Servicio::lockForUpdate()->findOrFail($item->id_servicio);
+
+                if ($servicio->estado !== 'activo' || $servicio->disponibilidad < $item->cantidad) {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'message' => 'Servicio sin disponibilidad suficiente',
+                        'id_servicio' => $servicio->id_servicio
+                    ], 400);
+                }
+                
+                $serviciosBloqueados[$item->id_servicio] = $servicio;
+            }
+
             // 1. Crear pedido
             $pedido = Pedido::create([
                 'id_usuario' => $request->user()->id_usuario,
@@ -95,18 +123,33 @@ class PedidoController extends Controller
 
             // 3. Procesar pago (simulado)
             $pagoAprobado = $this->procesarPago($request);
+            $referenciaPago = $pagoAprobado
+                ? 'AUTH-' . rand(100000, 999999)
+                : 'RECH-' . rand(100000, 999999);
 
-            $datosPago = DatosPago::create([
+            DatosPago::create([
                 'id_pedido' => $pedido->id_pedido,
-                'nombre_titular' => $request->nombre_titular,
-                'numero_tarjeta_encriptado' => encrypt($request->numero_tarjeta),
-                'tipo_tarjeta' => $request->tipo_tarjeta,
-                'estado_transaccion' => $pagoAprobado ? 'aprobada' : 'rechazada',
-                'codigo_autorizacion' => $pagoAprobado ? 'AUTH-' . rand(100000, 999999) : null,
-                'mensaje_banco' => $pagoAprobado ? 'Pago aprobado' : 'Fondos insuficientes'
+                'proveedor' => $this->proveedorPago($request->metodo_pago),
+                'referencia_externa' => $request->referencia_externa ?? $referenciaPago,
+                'monto' => $total,
+                'moneda' => 'EUR',
+                'estado_transaccion' => $pagoAprobado ? 'aprobado' : 'rechazado',
+                'fecha_pago' => now()
             ]);
 
             if ($pagoAprobado) {
+                foreach ($carrito as $item) {
+                    $servicio = $serviciosBloqueados[$item->id_servicio];
+                    $servicio->disponibilidad -= $item->cantidad;
+
+                    if ($servicio->disponibilidad <= 0) {
+                        $servicio->disponibilidad = 0;
+                        $servicio->estado = 'agotado';
+                    }
+
+                    $servicio->save();
+                }
+
                 // 4. Actualizar estados
                 $pedido->update([
                     'estado_pedido' => 'confirmado',
@@ -116,7 +159,9 @@ class PedidoController extends Controller
                 // 5. Generar factura
                 $factura = Factura::create([
                     'id_pedido' => $pedido->id_pedido,
-                    'numero_factura' => Factura::generarNumeroFactura()
+                    'numero_factura' => Factura::generarNumeroFactura(),
+                    'email_enviado' => true,
+                    'fecha_envio_email' => now()
                 ]);
 
                 // 6. Vaciar carrito
@@ -126,7 +171,7 @@ class PedidoController extends Controller
 
                 return response()->json([
                     'message' => 'Pedido creado exitosamente',
-                    'pedido' => $pedido->load(['detalles.servicio', 'factura'])
+                    'pedido' => $pedido->load(['detalles.servicio', 'factura', 'datosPago'])
                 ], 201);
             } else {
                 // Pago rechazado
@@ -160,6 +205,15 @@ class PedidoController extends Controller
     {
         // Simulación: 90% de probabilidad de éxito
         return rand(1, 10) <= 9;
+    }
+
+    private function proveedorPago(string $metodoPago): string
+    {
+        return match ($metodoPago) {
+            'paypal' => 'paypal',
+            'transferencia' => 'transferencia',
+            default => 'stripe',
+        };
     }
 
     /**

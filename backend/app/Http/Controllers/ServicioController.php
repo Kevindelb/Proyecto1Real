@@ -43,9 +43,18 @@ class ServicioController extends Controller
      * Ver detalle de un servicio
      * GET /api/servicios/{id}
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $servicio = Servicio::findOrFail($id);
+        $query = Servicio::where('id_servicio', $id);
+        $usuarioAutenticado = auth('sanctum')->user();
+        $esAdmin = $usuarioAutenticado instanceof Usuario && $usuarioAutenticado->isAdmin();
+
+        if (! $esAdmin) {
+            $query->activos();
+        }
+
+        $servicio = $query->firstOrFail();
+
         return response()->json($servicio);
     }
 
@@ -55,17 +64,27 @@ class ServicioController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $reglas = [
             'nombre' => 'required|string|max:200',
-            'tipo_servicio' => 'required|in:paquete_turistico,hotel,vuelo,excursion,transporte,actividad',
+            'tipo_servicio' => 'required|in:paquete_turistico,hotel,vuelo,excursion,transporte,actividad,otros',
             'precio' => 'required|numeric|min:0',
             'descripcion' => 'nullable|string',
             'destino' => 'nullable|string|max:150',
             'disponibilidad' => 'nullable|integer|min:0',
-            'duracion_dias' => 'nullable|integer|min:0'
-        ]);
+            'duracion_dias' => 'nullable|integer|min:0',
+            'imagen_url' => 'nullable|url|max:255',
+            'fecha_inicio' => 'nullable|date',
+            'fecha_fin' => 'nullable|date',
+            'estado' => 'nullable|in:activo,inactivo,agotado'
+        ];
 
-        $servicio = Servicio::create($request->all());
+        if ($request->filled('fecha_inicio')) {
+            $reglas['fecha_fin'] = 'nullable|date|after_or_equal:fecha_inicio';
+        }
+
+        $datosValidados = $request->validate($reglas);
+
+        $servicio = Servicio::create($datosValidados);
 
         // Registrar auditoría
         AuditoriaContenido::create([
@@ -90,14 +109,35 @@ class ServicioController extends Controller
         $servicio = Servicio::findOrFail($id);
         $datosAnteriores = $servicio->toArray();
 
-        $request->validate([
+        $reglas = [
             'nombre' => 'sometimes|string|max:200',
-            'tipo_servicio' => 'sometimes|in:paquete_turistico,hotel,vuelo,excursion,transporte,actividad',
+            'tipo_servicio' => 'sometimes|in:paquete_turistico,hotel,vuelo,excursion,transporte,actividad,otros',
             'precio' => 'sometimes|numeric|min:0',
-            'disponibilidad' => 'sometimes|integer|min:0'
-        ]);
+            'descripcion' => 'sometimes|nullable|string',
+            'destino' => 'sometimes|nullable|string|max:150',
+            'disponibilidad' => 'sometimes|integer|min:0',
+            'duracion_dias' => 'sometimes|nullable|integer|min:0',
+            'imagen_url' => 'sometimes|nullable|url|max:255',
+            'fecha_inicio' => 'sometimes|nullable|date',
+            'fecha_fin' => 'sometimes|nullable|date',
+            'estado' => 'sometimes|in:activo,inactivo,agotado'
+        ];
 
-        $servicio->update($request->all());
+        if ($request->filled('fecha_fin')) {
+            if ($request->has('fecha_inicio')) {
+                $fechaInicioReferencia = $request->input('fecha_inicio');
+            } else {
+                $fechaInicioReferencia = $servicio->fecha_inicio ? $servicio->fecha_inicio->format('Y-m-d') : null;
+            }
+
+            if ($fechaInicioReferencia) {
+                $reglas['fecha_fin'] = 'sometimes|nullable|date|after_or_equal:' . $fechaInicioReferencia;
+            }
+        }
+
+        $datosValidados = $request->validate($reglas);
+
+        $servicio->update($datosValidados);
 
         // Registrar auditoría
         AuditoriaContenido::create([
@@ -123,18 +163,21 @@ class ServicioController extends Controller
         $servicio = Servicio::findOrFail($id);
         $datosAnteriores = $servicio->toArray();
 
+        $servicio->update([
+            'estado' => 'inactivo'
+        ]);
+
         // Registrar auditoría antes de eliminar
         AuditoriaContenido::create([
             'id_administrador' => $request->user()->id_usuario,
             'id_servicio' => $servicio->id_servicio,
             'accion' => 'eliminar',
-            'datos_anteriores' => $datosAnteriores
+            'datos_anteriores' => $datosAnteriores,
+            'datos_nuevos' => $servicio->toArray()
         ]);
 
-        $servicio->delete();
-
         return response()->json([
-            'message' => 'Servicio eliminado exitosamente'
+            'message' => 'Servicio desactivado exitosamente'
         ]);
     }
 }
