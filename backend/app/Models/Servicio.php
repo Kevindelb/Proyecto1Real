@@ -16,7 +16,6 @@ class Servicio extends Model
         'tipo_servicio',
         'destino',
         'precio',
-        'disponibilidad',
         'duracion_dias',
         'imagen_url',
         'fecha_inicio',
@@ -55,6 +54,6 @@ class Servicio extends Model
     // Verificar disponibilidad
     public function estaDisponible()
     {
-        return $this->estado === 'activo' && $this->disponibilidad > 0;
+        return $this->estado === 'activo';
     }
 }

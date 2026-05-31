@@ -41,15 +41,11 @@ return new class extends Migration
                 $table->enum('tipo_servicio', [
                     'paquete_turistico',
                     'hotel',
-                    'vuelo',
-                    'excursion',
                     'transporte',
                     'actividad',
-                    'otros',
                 ])->nullable();
                 $table->string('destino', 150)->nullable();
                 $table->decimal('precio', 10, 2);
-                $table->integer('disponibilidad')->default(100);
                 $table->integer('duracion_dias')->nullable();
                 $table->string('imagen_url')->nullable();
                 $table->date('fecha_inicio')->nullable();
@@ -165,39 +161,7 @@ return new class extends Migration
             $createdTables[] = 'cambios_web';
         }
 
-        if (! Schema::hasTable('conversaciones_chat')) {
-            Schema::create('conversaciones_chat', function (Blueprint $table) {
-                $table->increments('id_conversacion');
-                $table->unsignedInteger('id_usuario');
-                $table->unsignedInteger('id_administrador')->nullable();
-                $table->dateTime('fecha_inicio')->useCurrent();
-                $table->dateTime('fecha_fin')->nullable();
-                $table->enum('estado', ['abierta', 'en_proceso', 'cerrada'])->default('abierta');
-                $table->integer('calificacion')->nullable();
-                $table->text('comentario_calificacion')->nullable();
 
-                $table->foreign('id_usuario')->references('id_usuario')->on('usuarios');
-                $table->foreign('id_administrador')->references('id_usuario')->on('usuarios');
-            });
-
-            $createdTables[] = 'conversaciones_chat';
-        }
-
-        if (! Schema::hasTable('mensajes_chat')) {
-            Schema::create('mensajes_chat', function (Blueprint $table) {
-                $table->increments('id_mensaje');
-                $table->unsignedInteger('id_conversacion');
-                $table->unsignedInteger('id_remitente');
-                $table->text('mensaje');
-                $table->dateTime('fecha_envio')->useCurrent();
-                $table->boolean('leido')->default(false);
-
-                $table->foreign('id_conversacion')->references('id_conversacion')->on('conversaciones_chat')->cascadeOnDelete();
-                $table->foreign('id_remitente')->references('id_usuario')->on('usuarios');
-            });
-
-            $createdTables[] = 'mensajes_chat';
-        }
 
         if ($createdTables !== []) {
             Schema::create(self::MARKER_TABLE, function (Blueprint $table) {
@@ -222,8 +186,6 @@ return new class extends Migration
         $createdTables = DB::table(self::MARKER_TABLE)->pluck('table_name')->all();
 
         foreach ([
-            'mensajes_chat',
-            'conversaciones_chat',
             'cambios_web',
             'facturas',
             'pagos',

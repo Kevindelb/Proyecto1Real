@@ -13,10 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class PedidoController extends Controller
 {
-    /**
-     * Listar pedidos del usuario
-     * GET /api/pedidos
-     */
+    /* cListar pedidos del Uusuari ------    GET /api/pedidos */
     public function index(Request $request)
     {
         $pedidos = Pedido::where('id_usuario', $request->user()->id_usuario)
@@ -36,10 +33,7 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
-    /**
-     * Ver detalle de un pedido
-     * GET /api/pedidos/{id}
-     */
+    /* ver detalle de un pedido ---  GET /api/pedidos/{id}*/
     public function show(Request $request, $id)
     {
         $pedido = Pedido::where('id_pedido', $id)
@@ -52,10 +46,7 @@ class PedidoController extends Controller
         return response()->json($pedido);
     }
 
-    /**
-     * Crear pedido (checkout)
-     * POST /api/pedidos
-     */
+    /* Crear pedido (checkout) -- POST /api/pedidos */
     public function store(Request $request)
     {
         $request->validate([
@@ -87,11 +78,11 @@ class PedidoController extends Controller
             foreach ($carrito as $item) {
                 $servicio = Servicio::lockForUpdate()->findOrFail($item->id_servicio);
 
-                if ($servicio->estado !== 'activo' || $servicio->disponibilidad < $item->cantidad) {
+                if ($servicio->estado !== 'activo') {
                     DB::rollBack();
 
                     return response()->json([
-                        'message' => 'Servicio sin disponibilidad suficiente',
+                        'message' => 'El servicio no está disponible para reserva',
                         'id_servicio' => $servicio->id_servicio
                     ], 400);
                 }
@@ -99,7 +90,9 @@ class PedidoController extends Controller
                 $serviciosBloqueados[$item->id_servicio] = $servicio;
             }
 
-            // 1. Crear pedido
+            //PASO A PASO DEL CHECKOUT   
+
+            // Crear pedido
             $pedido = Pedido::create([
                 'id_usuario' => $request->user()->id_usuario,
                 'total' => $total,
@@ -108,7 +101,7 @@ class PedidoController extends Controller
                 'estado_pago' => 'pendiente'
             ]);
 
-            // 2. Crear detalles del pedido
+            // Crear detalles del pedido
             foreach ($carrito as $item) {
                 DetallePedido::create([
                     'id_pedido' => $pedido->id_pedido,
@@ -121,7 +114,7 @@ class PedidoController extends Controller
                 ]);
             }
 
-            // 3. Procesar pago (simulado)
+            // Procesar pago (simulado)
             $pagoAprobado = $this->procesarPago($request);
             $referenciaPago = $pagoAprobado
                 ? 'AUTH-' . rand(100000, 999999)
@@ -138,25 +131,15 @@ class PedidoController extends Controller
             ]);
 
             if ($pagoAprobado) {
-                foreach ($carrito as $item) {
-                    $servicio = $serviciosBloqueados[$item->id_servicio];
-                    $servicio->disponibilidad -= $item->cantidad;
+                // Los productos tienen disponibilidad infinita asi que no es necesario ponerle pa que disminuyan
 
-                    if ($servicio->disponibilidad <= 0) {
-                        $servicio->disponibilidad = 0;
-                        $servicio->estado = 'agotado';
-                    }
-
-                    $servicio->save();
-                }
-
-                // 4. Actualizar estados
+                // Actualizar estados del pedido
                 $pedido->update([
                     'estado_pedido' => 'confirmado',
                     'estado_pago' => 'aprobado'
                 ]);
 
-                // 5. Generar factura
+                // Generar factura
                 $factura = Factura::create([
                     'id_pedido' => $pedido->id_pedido,
                     'numero_factura' => Factura::generarNumeroFactura(),
@@ -164,7 +147,7 @@ class PedidoController extends Controller
                     'fecha_envio_email' => now()
                 ]);
 
-                // 6. Vaciar carrito
+                // Vaciar carrito
                 Carrito::where('id_usuario', $request->user()->id_usuario)->delete();
 
                 DB::commit();
@@ -197,13 +180,10 @@ class PedidoController extends Controller
         }
     }
 
-    /**
-     * Simular procesamiento de pago
-     * En producción: integrar con pasarela real (Stripe, PayPal)
-     */
+    // Simular procesamiento de pago en luegop se puedo integrar con pasarela real (Stripe, PayPal)
     private function procesarPago($request)
     {
-        // Simulación: 90% de probabilidad de éxito
+        // hacemos una simulacion con 90% de probabilidad de éxito para comprobar si falla o no
         return rand(1, 10) <= 9;
     }
 
@@ -216,10 +196,7 @@ class PedidoController extends Controller
         };
     }
 
-    /**
-     * Actualizar estado del pedido (solo admin)
-     * PUT /api/pedidos/{id}/estado
-     */
+    /* Actualizar estado del pedido (solo admin) --- -- PUT /api/pedidos/{id}/estado */
     public function updateEstado(Request $request, $id)
     {
         $request->validate([

@@ -8,10 +8,7 @@ use Illuminate\Http\Request;
 
 class CarritoController extends Controller
 {
-    /**
-     * Ver carrito del usuario autenticado
-     * GET /api/carrito
-     */
+    /* Ver carrito del usuario autenticado -----  GET /api/carrito  */
     public function index(Request $request)
     {
         $carrito = Carrito::where('id_usuario', $request->user()->id_usuario)
@@ -29,10 +26,7 @@ class CarritoController extends Controller
         ]);
     }
 
-    /**
-     * Agregar servicio al carrito
-     * POST /api/carrito
-     */
+    // Agregar servicio al carrito -- POST /api/carrito 
     public function store(Request $request)
     {
         $request->validate([
@@ -80,10 +74,7 @@ class CarritoController extends Controller
         ], 201);
     }
 
-    /**
-     * Actualizar cantidad en carrito
-     * PUT /api/carrito/{id}
-     */
+    // Actualizar cantidad en carrito ---- PUT /api/carrito/{id} 
     public function update(Request $request, $id)
     {
         $item = Carrito::where('id_carrito', $id)
@@ -104,10 +95,7 @@ class CarritoController extends Controller
         ]);
     }
 
-    /**
-     * Eliminar del carrito
-     * DELETE /api/carrito/{id}
-     */
+    /* Eliminar del carrito ---- DELETE /api/carrito/{id} */
     public function destroy(Request $request, $id)
     {
         $item = Carrito::where('id_carrito', $id)
@@ -121,10 +109,7 @@ class CarritoController extends Controller
         ]);
     }
 
-    /**
-     * Vaciar todo el carrito
-     * DELETE /api/carrito
-     */
+    /* Vaciar todo el carrito ---  DELETE /api/carrito */
     public function clear(Request $request)
     {
         Carrito::where('id_usuario', $request->user()->id_usuario)->delete();

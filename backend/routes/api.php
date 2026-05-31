@@ -28,16 +28,15 @@ Route::get('/servicios/{id}', [ServicioController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
     
-    // ========================================
     // AUTENTICACIÓN
-    // ========================================
+
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/user/profile', [AuthController::class, 'updateProfile']);
+    Route::put('/user/password', [AuthController::class, 'updatePassword']);
 
     
-    // ========================================
     // CARRITO
-    // ========================================
     Route::get('/carrito', [CarritoController::class, 'index']);
     Route::post('/carrito', [CarritoController::class, 'store']);
     Route::put('/carrito/{id}', [CarritoController::class, 'update']);
@@ -45,27 +44,28 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/carrito', [CarritoController::class, 'clear']);
 
     
-    // ========================================
     // PEDIDOS
-    // ========================================
     Route::get('/pedidos', [PedidoController::class, 'index']);
     Route::post('/pedidos', [PedidoController::class, 'store']);
     Route::get('/pedidos/{id}', [PedidoController::class, 'show']);
 
 
     
-    // ========================================
     // RUTAS SOLO PARA ADMINISTRADORES
-    // ========================================
+
     Route::middleware(\App\Http\Middleware\AdminMiddleware::class)->group(function () {
         
-        // SERVICIOS (CRUD admin)
+        // SERVICIOS -> CRUD admin)
         Route::post('/servicios', [ServicioController::class, 'store']);
         Route::put('/servicios/{id}', [ServicioController::class, 'update']);
+        Route::patch('/servicios/{id}', [ServicioController::class, 'update']); // multipart/form-data (con imagen)
         Route::delete('/servicios/{id}', [ServicioController::class, 'destroy']);
         
-        // PEDIDOS (gestión admin)
+        // PEDIDOS va a ser para (gestión admin)
         Route::get('/admin/pedidos', [PedidoController::class, 'adminIndex']);
         Route::put('/pedidos/{id}/estado', [PedidoController::class, 'updateEstado']);
+
+        // USUARIOS sera para gestionar (gestión admin)
+        Route::apiResource('/admin/usuarios', \App\Http\Controllers\UsuarioController::class);
     });
 });
