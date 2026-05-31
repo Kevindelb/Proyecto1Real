@@ -16,9 +16,9 @@ backend/bootstrap/cache/*
 # ========================
 # FRONTEND REACT
 # ========================
-frontend/node_modules/
-frontend/dist/
-frontend/build/
+Frontend_React/node_modules/
+Frontend_React/dist/
+Frontend_React/build/
 
 # ========================
 # GENERAL
